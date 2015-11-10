@@ -97,7 +97,14 @@ module ActiveRecord
         klass.unscoped.where(klass.primary_key => records).update_all(changes)
       end
       state.updated attr, records
-      records.each { |record| record.run_callbacks(:touch) }
+      records.each do |record|
+        record.run_callbacks(:touch)
+        if klass.connection.open_transactions > 0
+          klass.connection.add_transaction_record record
+        else
+          record.run_callbacks(:commit)
+        end
+      end
     end
   end
 end
