@@ -15,6 +15,7 @@ module ActiveRecord
       end
 
       def updated(attr, records)
+        @records[attr] = Set.new(@records[attr])
         @records[attr].subtract records
         @records.delete attr if @records[attr].empty?
         @already_updated_records[attr] += records

@@ -60,6 +60,7 @@ module ActiveRecord
 
     # Apply the touches that were delayed.
     def self.apply
+      Rails.logger.debug "=== applying touches: start".green
       begin
         ActiveRecord::Base.transaction do
           state.records_by_attrs_and_class.each do |attr, classes_and_records|
@@ -69,7 +70,9 @@ module ActiveRecord
           end
         end
       end while state.more_records?
+      Rails.logger.debug "=== applying touches: done".green
     ensure
+      Rails.logger.debug "=== applying touches: ensure".green
       state.clear_records
     end
 
@@ -94,10 +97,15 @@ module ActiveRecord
           end
         end
 
-        klass.unscoped.where(klass.primary_key => records).update_all(changes)
+        updatable_records = records.reject{|r| r.id.nil? or r.destroyed?}
+        if updatable_records.present?
+          klass.unscoped.where(klass.primary_key => updatable_records).update_all(changes)
+        end
       end
+byebug if defined? Byebug
       state.updated attr, records
       records.each do |record|
+        next if record.id.nil? # This can happen when a transaction is rolled back
         record.run_callbacks(:touch)
         if klass.connection.open_transactions > 0
           klass.connection.add_transaction_record record
