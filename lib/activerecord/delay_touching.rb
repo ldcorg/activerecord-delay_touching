@@ -60,6 +60,7 @@ module ActiveRecord
 
     # Apply the touches that were delayed.
     def self.apply
+      Rails.logger.debug "=== applying touches: start".green
       begin
         ActiveRecord::Base.transaction do
           state.records_by_attrs_and_class.each do |attr, classes_and_records|
@@ -69,12 +70,16 @@ module ActiveRecord
           end
         end
       end while state.more_records?
+      Rails.logger.debug "=== applying touches: done".green
     ensure
+      Rails.logger.debug "=== applying touches: ensure".green
       state.clear_records
     end
 
     # Touch the specified records--non-empty set of instances of the same class.
     def self.touch_records(attr, klass, records)
+      Rails.logger.debug "=== touch_records: klass: #{klass.inspect}".red
+      Rails.logger.debug "=== touch_records: records.count: #{records.count}".yellow
       attributes = records.first.send(:timestamp_attributes_for_update_in_model)
       attributes << attr if attr
 
@@ -98,6 +103,9 @@ module ActiveRecord
       end
       state.updated attr, records
       records.each do |record|
+        Rails.logger.debug "=== record.destroyed? #{record.destroyed?.inspect}".red
+        Rails.logger.debug "=== record.id.nil? #{record.id.nil?.inspect}".red
+        next if record.id.nil? # This can happen when a transaction is rolled back
         record.run_callbacks(:touch)
         if klass.connection.open_transactions > 0
           klass.connection.add_transaction_record record
