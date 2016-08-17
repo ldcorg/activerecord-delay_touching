@@ -86,7 +86,7 @@ module ActiveRecord
           column = column.to_s
           changes[column] = current_time
           records.each do |record|
-            next if record.destroyed?
+            next unless record.persisted? # A new record may have been rolled back
             record.instance_eval do
               write_attribute column, current_time
               @changed_attributes.except!(*changes.keys)
@@ -94,10 +94,15 @@ module ActiveRecord
           end
         end
 
-        klass.unscoped.where(klass.primary_key => records).update_all(changes)
+        updatable_records = records.select{|r| r.persisted?} # No need to touch unpersisted records
+
+        if updatable_records.present?
+          klass.unscoped.where(klass.primary_key => updatable_records).update_all(changes)
+        end
       end
       state.updated attr, records
       records.each do |record|
+        next unless record.persisted? # A new record may have been rolled back
         record.run_callbacks(:touch)
         if klass.connection.open_transactions > 0
           klass.connection.add_transaction_record record
