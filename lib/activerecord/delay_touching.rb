@@ -60,6 +60,8 @@ module ActiveRecord
 
     # Apply the touches that were delayed.
     def self.apply
+      n = 0 # count loops
+      nth = (ENV['DELAY_TOUCHING_LOG_LOOP_EVERY'] || 100).to_i
       begin
         ActiveRecord::Base.transaction do
           state.records_by_attrs_and_class.each do |attr, classes_and_records|
@@ -68,6 +70,8 @@ module ActiveRecord
             end
           end
         end
+        n += 1
+        Rails.logger.error { "=== DelayTouch::apply: loop count: #{n}"} if n % nth == 0
       end while state.more_records?
     ensure
       state.clear_records
