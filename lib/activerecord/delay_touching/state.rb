@@ -15,6 +15,13 @@ module ActiveRecord
       end
 
       def updated(attr, records)
+        # Records may have been changed since they were added to the set.  For instance, if an error
+        # occurred and a Rollback was generated, Rails might change the record's id from an integer
+        # to a nil (if it's a new record).  Since it was stored in the set originally, using the
+        # hash of the id of the record (thanks to Rails' magic), it won't be removed because now the
+        # hash is different and it isn't found in the set.
+        @records[attr] = Set.new(@records[attr]) # recreate the Set so it's reliable
+
         @records[attr].subtract records
         @records.delete attr if @records[attr].empty?
         @already_updated_records[attr] += records
